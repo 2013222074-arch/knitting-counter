@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#111111" />
+  <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#111111">
   <title>Knitting Counter</title>
   <style>
     :root {
@@ -235,6 +238,9 @@
     <div class="topbar">
       <div class="brand">🧶 Knitting Counter <small>단수/코수</small></div>
       <div class="pill">
+        <button id="installBtn" class="ghost" style="display:none; padding:10px 12px; border-radius:999px;">
+  ⬇️ 설치
+</button>
         <span class="tiny" id="wakeLabel">화면유지: -</span>
         <div class="toggle" id="wakeToggle" title="화면 꺼짐 방지(지원 기기)">
           <i></i>
@@ -675,7 +681,36 @@
 
     // ---------- Init ----------
     load();
+// ---------- PWA: Service Worker 등록 ----------
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
 
+// ---------- PWA: 설치 버튼(가능한 브라우저에서만) ----------
+let deferredPrompt = null;
+const installBtn = document.getElementById("installBtn");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installBtn) installBtn.style.display = "inline-flex";
+});
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = "none";
+  });
+}
+
+window.addEventListener("appinstalled", () => {
+  if (installBtn) installBtn.style.display = "none";
+});
     // restore UI values
     activeSelect.value = state.active;
     stepInput.value = state.step || 1;
