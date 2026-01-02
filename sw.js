@@ -1,10 +1,10 @@
-const CACHE_NAME = "knitting-counter-v1";
+const CACHE_NAME = "knitting-counter-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./icon.svg",
-  "./icon-maskable.svg"
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
