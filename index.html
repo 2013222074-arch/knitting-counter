@@ -3,70 +3,311 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#111111" />
   <title>Knitting Counter</title>
   <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #111;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 18px 40px rgba(0,0,0,0.10);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f7f7f7;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
     }
     .app {
-      background: white;
-      padding: 24px;
-      border-radius: 16px;
-      width: 280px;
-      text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      width: min(420px, 92vw);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
     }
-    h1 {
-      margin-bottom: 16px;
+    .topbar {
+      padding: 14px 14px 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff, #fafafa);
     }
-    .count {
-      font-size: 48px;
-      margin: 20px 0;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
     }
-    button {
-      width: 100%;
-      padding: 14px;
-      font-size: 18px;
-      border: none;
-      border-radius: 12px;
-      margin-bottom: 10px;
+    .brand small { color: var(--muted); font-weight: 600; }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px 14px 0;
+    }
+    .tab {
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 12px 12px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       cursor: pointer;
+      user-select: none;
+      transition: transform .05s ease, background .15s ease;
     }
-    .add {
-      background: #4CAF50;
-      color: white;
+    .tab:active { transform: scale(0.99); }
+    .tab.active {
+      background: #111;
+      color: #fff;
+      border-color: #111;
     }
-    .reset {
-      background: #eee;
+    .tab .label { font-weight: 800; }
+    .tab .value { font-weight: 900; font-variant-numeric: tabular-nums; }
+
+    .panel {
+      padding: 16px 14px 14px;
+      display: grid;
+      gap: 12px;
     }
+    .countBox {
+      background: #0f172a;
+      color: #fff;
+      border-radius: 16px;
+      padding: 18px 16px;
+      display: grid;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .countBox::after{
+      content:"";
+      position:absolute; inset:-60px -60px auto auto;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(255,255,255,0.16), rgba(255,255,255,0));
+      transform: rotate(15deg);
+    }
+    .countTitle {
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:10px;
+      z-index: 1;
+    }
+    .countTitle .left { display:flex; align-items:center; gap:10px; }
+    .badge {
+      font-size: 12px;
+      color: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.10);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      z-index: 1;
+      user-select: none;
+    }
+    .bigNum {
+      font-size: 56px;
+      font-weight: 950;
+      letter-spacing: -1px;
+      z-index: 1;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.05;
+    }
+    .sub {
+      color: rgba(255,255,255,0.78);
+      font-size: 13px;
+      z-index: 1;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 16px;
+      padding: 14px 14px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      user-select: none;
+      transition: transform .05s ease, filter .15s ease;
+    }
+    button:active { transform: scale(0.99); }
+    button.primary {
+      background: #22c55e;
+      color: #052e16;
+    }
+    button.secondary {
+      background: #eef2ff;
+      color: #1f2937;
+    }
+    button.danger {
+      background: #fee2e2;
+      color: #7f1d1d;
+    }
+    button.ghost {
+      background: #f3f4f6;
+      color: #111;
+    }
+
+    .settings {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: #fff;
+    }
+    .row {
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .row .hint { color: var(--muted); font-size: 13px; }
+    .pill {
+      display:flex;
+      gap: 8px;
+      align-items:center;
+    }
+    .toggle {
+      width: 52px; height: 30px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #f3f4f6;
+      position: relative;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .toggle i {
+      position:absolute;
+      top: 3px; left: 3px;
+      width: 24px; height: 24px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--border);
+      transition: left .18s ease, background .18s ease;
+    }
+    .toggle.on { background: #111; border-color:#111; }
+    .toggle.on i { left: 25px; border-color:#111; }
+
+    input[type="number"], select {
+      width: 110px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+    }
+    .footnote {
+      padding: 0 14px 16px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .tiny {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .divider { height: 1px; background: var(--border); margin: 2px 0; }
   </style>
 </head>
 <body>
   <div class="app">
-    <h1>🧶 Knitting Counter</h1>
-    <div class="count" id="count">0</div>
-    <button class="add" onclick="add()">+1 단</button>
-    <button class="reset" onclick="resetCount()">리셋</button>
-  </div>
+    <div class="topbar">
+      <div class="brand">🧶 Knitting Counter <small>단수/코수</small></div>
+      <div class="pill">
+        <span class="tiny" id="wakeLabel">화면유지: -</span>
+        <div class="toggle" id="wakeToggle" title="화면 꺼짐 방지(지원 기기)">
+          <i></i>
+        </div>
+      </div>
+    </div>
 
-  <script>
-    let count = 0;
+    <div class="tabs">
+      <div class="tab active" id="tab-rows" onclick="setActive('rows')">
+        <span class="label">단수</span>
+        <span class="value" id="mini-rows">0</span>
+      </div>
+      <div class="tab" id="tab-stitches" onclick="setActive('stitches')">
+        <span class="label">코수</span>
+        <span class="value" id="mini-stitches">0</span>
+      </div>
+    </div>
 
-    function add() {
-      count++;
-      document.getElementById("count").innerText = count;
-    }
+    <div class="panel">
+      <div class="countBox">
+        <div class="countTitle">
+          <div class="left">
+            <div class="badge" id="activeBadge">현재: 단수</div>
+            <div class="badge" id="stepBadge">+1씩</div>
+          </div>
+          <div class="badge" id="notifyBadge">10/20 알림</div>
+        </div>
+        <div class="bigNum" id="bigCount">0</div>
+        <div class="sub">+ 버튼을 누르면 증가 · Undo로 되돌리기 가능</div>
+      </div>
 
-    function resetCount() {
-      count = 0;
-      document.getElementById("count").innerText = count;
-    }
-  </script>
-</body>
-</html>
+      <div class="grid2">
+        <button class="primary" onclick="add()">+ 증가</button>
+        <button class="ghost" onclick="undo()">↩ Undo</button>
+      </div>
+
+      <div class="grid2">
+        <button class="secondary" onclick="subtract()">− 감소</button>
+        <button class="danger" onclick="resetCount()">리셋(0)</button>
+      </div>
+
+      <div class="settings">
+        <div class="row">
+          <div>
+            <div style="font-weight:900;">단수/코수 선택</div>
+            <div class="hint">탭(단수/코수)을 눌러 바꿔줘</div>
+          </div>
+          <select id="activeSelect" onchange="setActive(this.value)">
+            <option value="rows">단수</option>
+            <option value="stitches">코수</option>
+          </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <div>
+            <div style="font-weight:900;">증가 단위(단수변경)</div>
+            <div class="hint">+ 버튼 누를 때 몇씩 올릴지</div>
+          </div>
+          <input id="stepInput" type="number" min="1" step="1" value="1" />
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <div>
+            <div style="font-weight:900;">클릭 진동</div>
+            <div class="hint">휴대폰에서만 동작(지원 시)</div>
+          </div>
+          <div class="toggle" id="vibeToggle" title="진동 On/Off"><i></i></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div
