@@ -310,4 +310,387 @@
 
         <div class="row">
           <div>
-            <div
+            <div style="font-weight:900;">클릭 소리</div>
+            <div class="hint">조용히 쓰고 싶으면 Off</div>
+          </div>
+          <div class="toggle" id="soundToggle" title="소리 On/Off"><i></i></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div style="font-weight:900;">10/20 알림</div>
+            <div class="hint">10·20마다 더 강하게</div>
+          </div>
+          <div class="toggle" id="notifyToggle" title="알림 On/Off"><i></i></div>
+        </div>
+
+        <div class="tiny">
+          💾 숫자/설정은 자동 저장돼서 앱 껐다 켜도 유지돼!
+        </div>
+      </div>
+    </div>
+
+    <div class="footnote">
+      • 팁: 소리/진동은 브라우저 정책상 <b>처음 한 번은 버튼을 눌러야</b> 활성화되는 경우가 있어.<br/>
+      • 화면유지(꺼짐 방지)는 기기/브라우저 지원에 따라 다를 수 있어.
+    </div>
+  </div>
+
+  <script>
+    // ---------- State ----------
+    const STORAGE_KEY = "knittingCounter_v2";
+    const state = {
+      active: "rows",                 // 'rows' | 'stitches'
+      counts: { rows: 0, stitches: 0 },
+      step: 1,
+      history: { rows: [], stitches: [] }, // undo stacks
+      settings: {
+        vibration: true,
+        sound: false,
+        notify: true,
+        wakeLock: false
+      }
+    };
+
+    // ---------- UI refs ----------
+    const $ = (id) => document.getElementById(id);
+
+    const tabRows = $("tab-rows");
+    const tabStitches = $("tab-stitches");
+    const miniRows = $("mini-rows");
+    const miniStitches = $("mini-stitches");
+    const bigCount = $("bigCount");
+    const activeBadge = $("activeBadge");
+    const stepBadge = $("stepBadge");
+    const notifyBadge = $("notifyBadge");
+
+    const activeSelect = $("activeSelect");
+    const stepInput = $("stepInput");
+
+    const vibeToggle = $("vibeToggle");
+    const soundToggle = $("soundToggle");
+    const notifyToggle = $("notifyToggle");
+    const wakeToggle = $("wakeToggle");
+    const wakeLabel = $("wakeLabel");
+
+    // ---------- Persist ----------
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+
+        if (saved && typeof saved === "object") {
+          if (saved.active) state.active = saved.active;
+          if (saved.counts) state.counts = { ...state.counts, ...saved.counts };
+          if (saved.step) state.step = Number(saved.step) || 1;
+          if (saved.history) state.history = {
+            rows: Array.isArray(saved.history.rows) ? saved.history.rows : [],
+            stitches: Array.isArray(saved.history.stitches) ? saved.history.stitches : []
+          };
+          if (saved.settings) state.settings = { ...state.settings, ...saved.settings };
+        }
+      } catch (e) {
+        console.warn("load failed", e);
+      }
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    // ---------- Sound (WebAudio beep) ----------
+    let audioCtx = null;
+    function beep(strength = "soft") {
+      if (!state.settings.sound) return;
+
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = audioCtx;
+
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+
+        let freq = 520;
+        let dur = 0.06;
+        let gain = 0.06;
+
+        if (strength === "mid") { freq = 660; dur = 0.08; gain = 0.08; }
+        if (strength === "strong") { freq = 880; dur = 0.12; gain = 0.10; }
+
+        o.type = "sine";
+        o.frequency.value = freq;
+        g.gain.value = gain;
+
+        o.connect(g);
+        g.connect(ctx.destination);
+
+        const now = ctx.currentTime;
+        o.start(now);
+        o.stop(now + dur);
+      } catch (e) {
+        // no-op
+      }
+    }
+
+    // ---------- Vibration ----------
+    function vibrate(pattern) {
+      if (!state.settings.vibration) return;
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    // ---------- Wake Lock ----------
+    let wakeLock = null;
+    async function setWakeLock(on) {
+      state.settings.wakeLock = !!on;
+      updateToggles();
+      save();
+
+      if (!("wakeLock" in navigator) || !navigator.wakeLock) {
+        wakeLabel.textContent = "화면유지: 지원X";
+        return;
+      }
+
+      if (!on) {
+        try {
+          if (wakeLock) await wakeLock.release();
+        } catch (e) {}
+        wakeLock = null;
+        wakeLabel.textContent = "화면유지: Off";
+        return;
+      }
+
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLabel.textContent = "화면유지: On";
+        wakeLock.addEventListener("release", () => {
+          // release can happen automatically
+          wakeLabel.textContent = "화면유지: Off";
+          state.settings.wakeLock = false;
+          updateToggles();
+          save();
+        });
+      } catch (e) {
+        wakeLabel.textContent = "화면유지: 실패";
+        state.settings.wakeLock = false;
+        updateToggles();
+        save();
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      // keep alive after tab returns (if user wants)
+      if (document.visibilityState === "visible" && state.settings.wakeLock) {
+        setWakeLock(true);
+      }
+    });
+
+    // ---------- Helpers ----------
+    function clampNonNegative(n) {
+      n = Number(n) || 0;
+      return Math.max(0, n);
+    }
+
+    function activeName() {
+      return state.active === "rows" ? "단수" : "코수";
+    }
+
+    function currentCount() {
+      return state.counts[state.active];
+    }
+
+    function pushHistory(prevValue) {
+      const stack = state.history[state.active];
+      stack.push(prevValue);
+      // 너무 길어지지 않게 제한(예: 200단계)
+      if (stack.length > 200) stack.shift();
+    }
+
+    // ---------- Core actions ----------
+    function add() {
+      const step = clampNonNegative(stepInput.value) || 1;
+      state.step = step;
+
+      const prev = currentCount();
+      pushHistory(prev);
+
+      state.counts[state.active] = prev + step;
+
+      clickFeedback();
+      milestoneFeedback();
+      render();
+      save();
+    }
+
+    function subtract() {
+      const step = clampNonNegative(stepInput.value) || 1;
+      state.step = step;
+
+      const prev = currentCount();
+      pushHistory(prev);
+
+      state.counts[state.active] = Math.max(0, prev - step);
+
+      clickFeedback();
+      render();
+      save();
+    }
+
+    function undo() {
+      const stack = state.history[state.active];
+      if (!stack.length) {
+        // 빈 Undo면 살짝 진동만
+        vibrate([20]);
+        beep("soft");
+        return;
+      }
+      const prev = stack.pop();
+      state.counts[state.active] = clampNonNegative(prev);
+
+      // Undo 피드백
+      vibrate([25]);
+      beep("mid");
+
+      render();
+      save();
+    }
+
+    function resetCount() {
+      const prev = currentCount();
+      pushHistory(prev);
+
+      state.counts[state.active] = 0;
+      // 리셋은 강한 피드백
+      vibrate([40, 40, 40]);
+      beep("strong");
+
+      render();
+      save();
+    }
+
+    function clickFeedback() {
+      vibrate([15]);
+      beep("soft");
+    }
+
+    function milestoneFeedback() {
+      if (!state.settings.notify) return;
+
+      const n = currentCount();
+      // 20 배수: 더 강하게 / 10 배수: 중간
+      if (n > 0 && n % 20 === 0) {
+        vibrate([80, 40, 80, 40, 120]);
+        beep("strong");
+      } else if (n > 0 && n % 10 === 0) {
+        vibrate([50, 30, 70]);
+        beep("mid");
+      }
+    }
+
+    // ---------- UI ----------
+    function setActive(which) {
+      state.active = which;
+      activeSelect.value = which;
+      render();
+      save();
+    }
+
+    function setToggle(el, on) {
+      el.classList.toggle("on", !!on);
+    }
+
+    function updateToggles() {
+      setToggle(vibeToggle, state.settings.vibration);
+      setToggle(soundToggle, state.settings.sound);
+      setToggle(notifyToggle, state.settings.notify);
+      setToggle(wakeToggle, state.settings.wakeLock);
+
+      if (!("wakeLock" in navigator) || !navigator.wakeLock) {
+        wakeLabel.textContent = "화면유지: 지원X";
+      } else {
+        wakeLabel.textContent = state.settings.wakeLock ? "화면유지: On" : "화면유지: Off";
+      }
+
+      notifyBadge.textContent = state.settings.notify ? "10/20 알림" : "알림 Off";
+    }
+
+    function render() {
+      miniRows.textContent = state.counts.rows;
+      miniStitches.textContent = state.counts.stitches;
+
+      tabRows.classList.toggle("active", state.active === "rows");
+      tabStitches.classList.toggle("active", state.active === "stitches");
+
+      activeBadge.textContent = `현재: ${activeName()}`;
+      bigCount.textContent = currentCount();
+
+      const step = clampNonNegative(stepInput.value) || state.step || 1;
+      stepBadge.textContent = `+${step}씩`;
+
+      updateToggles();
+    }
+
+    // ---------- Toggle handlers ----------
+    vibeToggle.addEventListener("click", () => {
+      state.settings.vibration = !state.settings.vibration;
+      if (state.settings.vibration) vibrate([15]);
+      save();
+      render();
+    });
+
+    soundToggle.addEventListener("click", async () => {
+      state.settings.sound = !state.settings.sound;
+
+      // iOS/브라우저 정책: 사용자 제스처로 audioCtx resume 필요할 수 있음
+      try {
+        if (state.settings.sound) {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          await audioCtx.resume?.();
+          beep("mid");
+        }
+      } catch (e) {}
+
+      save();
+      render();
+    });
+
+    notifyToggle.addEventListener("click", () => {
+      state.settings.notify = !state.settings.notify;
+      if (state.settings.notify) { vibrate([25]); beep("mid"); }
+      save();
+      render();
+    });
+
+    wakeToggle.addEventListener("click", () => {
+      setWakeLock(!state.settings.wakeLock);
+    });
+
+    stepInput.addEventListener("change", () => {
+      const step = clampNonNegative(stepInput.value) || 1;
+      stepInput.value = step;
+      state.step = step;
+      save();
+      render();
+    });
+
+    // ---------- Init ----------
+    load();
+
+    // restore UI values
+    activeSelect.value = state.active;
+    stepInput.value = state.step || 1;
+
+    render();
+
+    // If user previously enabled wakelock, try again
+    if (state.settings.wakeLock) setWakeLock(true);
+
+    // expose for inline onclick (already used)
+    window.setActive = setActive;
+    window.add = add;
+    window.undo = undo;
+    window.resetCount = resetCount;
+    window.subtract = subtract;
+  </script>
+</body>
+</html>
