@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Knitting Counter</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f7f7f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .app {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      width: 280px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin-bottom: 16px;
+    }
+    .count {
+      font-size: 48px;
+      margin: 20px 0;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .add {
+      background: #4CAF50;
+      color: white;
+    }
+    .reset {
+      background: #eee;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>🧶 Knitting Counter</h1>
+    <div class="count" id="count">0</div>
+    <button class="add" onclick="add()">+1 단</button>
+    <button class="reset" onclick="resetCount()">리셋</button>
+  </div>
+
+  <script>
+    let count = 0;
+
+    function add() {
+      count++;
+      document.getElementById("count").innerText = count;
+    }
+
+    function resetCount() {
+      count = 0;
+      document.getElementById("count").innerText = count;
+    }
+  </script>
+</body>
+</html>
